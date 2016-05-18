@@ -113,7 +113,7 @@ class UserRegistrationPassword extends ControllerBase {
     else {
       // Time out, in seconds, until login URL expires. 24 hours = 86400 seconds.
       // TODO
-      $timeout = variable_get('user_registrationpassword_registration_ftll_timeout', 86400);
+      $timeout = $this->config('user_registrationpassword.settings')->get('registration_ftll_timeout');
       $current = REQUEST_TIME;
       $timestamp_created = $timestamp - $timeout;
 
@@ -129,7 +129,7 @@ class UserRegistrationPassword extends ControllerBase {
       if ($timestamp_created <= $current && !empty($users) && $account = $this->userStorage->load(reset($users))) {
         // Check if we have to enforce expiration for activation links.
         // TODO expire.
-        if (variable_get('user_registrationpassword_registration_ftll_expire', FALSE) && !$account->getLastLoginTime() && $current - $timestamp > $timeout) {
+        if ($this->config('user_registrationpassword.settings')->get('registration_ftll_expire') && !$account->getLastLoginTime() && $current - $timestamp > $timeout) {
           $route_name = user_registrationpassword_set_message('linkerror', TRUE);
         }
         // Else try to activate the account.

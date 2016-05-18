@@ -23,13 +23,6 @@ class UserRegistrationPassword extends WebTestBase {
    * Implements testRegistrationWithEmailVerificationAndPassword().
    */
   function testRegistrationWithEmailVerificationAndPassword() {
-    // Disable e-mail verification.
-    \Drupal::configFactory()->getEditable('user.settings')->set('verify_mail', FALSE)->save();
-    // Prevent standard notification email to administrators and to user.
-    //variable_set('user_mail_register_pending_approval_notify', FALSE);
-    // Set the registration variable to 2, register with pass, but require confirmation.
-    //variable_set('user_registrationpassword_registration', USER_REGISTRATIONPASS_VERIFICATION_PASS);
-
     // Register a new account.
     $edit = array();
     $edit['name'] = $name = $this->randomMachineName();
