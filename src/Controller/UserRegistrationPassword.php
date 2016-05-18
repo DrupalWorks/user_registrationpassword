@@ -83,26 +83,24 @@ class UserRegistrationPassword extends ControllerBase {
     $route_options = [];
     $current_user = $this->currentUser();
 
-    // When processing the one-time login link, we have to
-    // make sure that a user isn't already logged in.
-    if ($current_user->id()) {
+    // When processing the one-time login link, we have to make sure that a user
+    // isn't already logged in.
+    if ($current_user->isAuthenticated()) {
       // The existing user is already logged in.
       if ($current_user->id() == $uid) {
+
         drupal_set_message(t('You are currently authenticated as user %user.', array('%user' => $current_user->getAccountName())));
-        // TODO
-        //. '; ' . $this->linkGenerator->generate() l(t('Change your password'), 'user/' . $current_user->uid . '/edit'));
+
         // Redirect to user page.
         $route_name = 'entity.user.canonical';
         $route_options = ['user' => $current_user->id()];
-
       }
       // A different user is already logged in on the computer.
       else {
         $reset_link_account = $this->userStorage->load($uid);
         if (!empty($reset_link_account)) {
-          // TODO
-          drupal_set_message(t('Another user (%other_user) is already authenticated to the site, but you tried to use a one-time link for user %resetting_user.', array('%other_user' => $current_user->getAccountName(), '%resetting_user' => $reset_link_account->getAccountName())));
-          //. ' ' . t('Please !logout and try using the link again.', array('!logout' => l(t('logout'), 'user/logout'))));
+          drupal_set_message($this->t('Another user (%other_user) is already logged into the site on this computer, but you tried to use a one-time link for user %resetting_user. Please <a href=":logout">log out</a> and try using the link again.',
+            array('%other_user' => $current_user->getUsername(), '%resetting_user' => $reset_link_account->getUsername(), ':logout' => $this->url('user.logout'))), 'warning');
         }
         else {
           // Invalid one-time link specifies an unknown user.
