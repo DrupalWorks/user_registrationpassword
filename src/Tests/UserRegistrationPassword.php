@@ -16,8 +16,7 @@ class UserRegistrationPassword extends WebTestBase {
    *
    * @var array
    */
-  // TODO why is field test required?
-  public static $modules = array('field_test', 'user_registrationpassword');
+  public static $modules = array('user_registrationpassword');
 
   /**
    * Implements testRegistrationWithEmailVerificationAndPassword().
@@ -78,9 +77,10 @@ class UserRegistrationPassword extends WebTestBase {
     $this->assertText('You have tried to use a one-time login link that has either been used or is no longer valid. Please request a new one using the form below.');
 
     // Wrong password.
-    // TODO
-    //$this->drupalGet("user/registrationpassword/$account->uid/$bogus_timestamp/" . user_pass_rehash($this->randomMachineName(), $timestamp, $account->name, $account->uid));
-    //$this->assertText(t('You have tried to use a one-time login link that has either been used or is no longer valid. Please request a new one using the form below.'));
+    $account_cloned = clone $account;
+    $account_cloned->setPassword('boguspass');
+    $this->drupalGet("user/registrationpassword/" . $account->id() . "/$timestamp/" . user_pass_rehash($account_cloned, $timestamp));
+    $this->assertText('You have tried to use a one-time login link that has either been used or is no longer valid. Please request a new one using the form below.');
 
     // Attempt to use the activation link.
     $this->drupalGet("user/registrationpassword/" . $account->id() . "/$timestamp/" . user_pass_rehash($account, $timestamp));
@@ -135,17 +135,7 @@ class UserRegistrationPassword extends WebTestBase {
     $this->assertText($edit4['name'] . ' is not recognized as a username or an email address.', 'Password rest form failed correctly.');
   }
 
-  function _testLoginWithUrpLinkWhileBlocked() {
-    // Allow registration by site visitors without administrator
-    // approval and set password during registration.
-    variable_set('user_register', USER_REGISTER_VISITORS);
-    // Disable e-mail verification.
-    variable_set('user_email_verification', FALSE);
-    // Prevent standard notification email to administrators and to user.
-    variable_set('user_mail_register_pending_approval_notify', FALSE);
-    // Set the registration variable to 2, register with pass, but require confirmation.
-    variable_set('user_registrationpassword_registration', USER_REGISTRATIONPASS_VERIFICATION_PASS);
-
+  function testLoginWithUrpLinkWhileBlocked() {
     $timestamp = REQUEST_TIME + 5000;
 
     // Register a new account.
@@ -154,47 +144,36 @@ class UserRegistrationPassword extends WebTestBase {
     $edit['mail'] = $mail = $edit['name'] . '@example.com';
     $edit['pass[pass1]'] = $new_pass = $this->randomMachineName();
     $edit['pass[pass2]'] = $new_pass;
-    $pass = $new_pass;
-    $this->drupalPostForm('user/register', $edit, t('Create new account'));
-    $this->assertText(t('A welcome message with further instructions has been sent to your e-mail address.'), t('User registered successfully.'));
+    $this->drupalPostForm('user/register', $edit, 'Create new account');
 
     // Load the new user.
-    $accounts = user_load_multiple(array(), array('name' => $name, 'mail' => $mail, 'status' => 0));
-    $account = reset($accounts);
+    $accounts = \Drupal::entityQuery('user')
+      ->condition('name', $name)
+      ->condition('mail', $mail)
+      ->condition('status', 0)
+      ->execute();
+    /** @var \Drupal\user\UserInterface $account */
+    $account = \Drupal::entityTypeManager()->getStorage('user')->load(reset($accounts));
 
     // Attempt to use the activation link.
-    $this->drupalGet("user/registrationpassword/$account->uid/$timestamp/" . user_pass_rehash($account->pass, $timestamp, $account->name, $account->uid));
+    $this->drupalGet("user/registrationpassword/" . $account->id() . "/$timestamp/" . user_pass_rehash($account, $timestamp));
     $this->assertText(t('You have just used your one-time login link. Your account is now active and you are authenticated.'));
 
-    // Logout the user.
     $this->drupalLogout();
 
     // Block the user.
-    $admin_user = $this->drupalCreateUser(array('administer users'));
-    $this->drupalLogin($admin_user);
-    $this->drupalGet('admin/people');
-    $editblock = array();
-    $editblock['operation'] = 'block';
-    $editblock['accounts[' . $account->uid . ']'] = TRUE;
-    $this->drupalPostForm('admin/people', $editblock, t('Update'));
-
-    // Logout the administrator.
-    $this->drupalLogout();
-
-    // Load the new user.
-    $accounts_blocked = user_load_multiple(array(), array('name' => $name, 'mail' => $mail, 'status' => 0));
-    $account_blocked = reset($accounts_blocked);
-
-    // Confirm status is really blocked.
-    $this->assertEqual($account_blocked->status, 0, 'User blocked');
+    $account
+      ->setLastLoginTime(REQUEST_TIME)
+      ->block()
+      ->save();
 
     // Then try to use the link.
-    $this->drupalGet("user/registrationpassword/$account->uid/$timestamp/" . user_pass_rehash($account->pass, $timestamp, $account->name, $account->uid));
-    $this->assertText(t('You have tried to use a one-time login link that has either been used or is no longer valid. Please request a new one using the form below.'));
+    $this->drupalGet("user/registrationpassword/" . $account->id() . "/$timestamp/" . user_pass_rehash($account, $timestamp));
+    $this->assertText('You have tried to use a one-time login link that has either been used or is no longer valid. Please request a new one using the form below.');
 
     // Try to request a new activation e-mail.
     $edit2['name'] = $edit['name'];
-    $this->drupalPostForm('user/password', $edit2, t('E-mail new password'));
-    $this->assertText(t('Sorry, !name is not recognized as a user name or an e-mail address.', array('!name' => $edit2['name'])), t('Password rest form failed correctly.'));
+    $this->drupalPostForm('user/password', $edit2, 'Submit');
+    $this->assertText($edit2['name'] . ' is blocked or has not been activated yet.', 'Password reset form failed correctly.');
   }
 }
