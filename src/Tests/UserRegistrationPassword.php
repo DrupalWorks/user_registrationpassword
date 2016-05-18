@@ -106,48 +106,33 @@ class UserRegistrationPassword extends WebTestBase {
     $this->assertText('Member for', 'User logged in.');
   }
 
-  function _testPasswordResetFormResendActivation() {
-    // Allow registration by site visitors without administrator
-    // approval and set password during registration.
-    variable_set('user_register', USER_REGISTER_VISITORS);
-    // Disable e-mail verification.
-    variable_set('user_email_verification', FALSE);
-    // Prevent standard notification email to administrators and to user.
-    variable_set('user_mail_register_pending_approval_notify', FALSE);
-    // Set the registration variable to 2, register with pass, but require confirmation.
-    variable_set('user_registrationpassword_registration', USER_REGISTRATIONPASS_VERIFICATION_PASS);
-
+  function testPasswordResetFormResendActivation() {
     // Register a new account.
     $edit1 = array();
     $edit1['name'] = $name = $this->randomMachineName();
     $edit1['mail'] = $mail = $edit1['name'] . '@example.com';
     $edit1['pass[pass1]'] = $new_pass = $this->randomMachineName();
     $edit1['pass[pass2]'] = $new_pass;
-    $pass = $new_pass;
-    $this->drupalPostForm('user/register', $edit1, t('Create new account'));
-    $this->assertText(t('A welcome message with further instructions has been sent to your e-mail address.'), t('User registered successfully.'));
-
-    // Load the new user.
-    $accounts = user_load_multiple(array(), array('name' => $name, 'mail' => $mail, 'status' => 0));
-    $account = reset($accounts);
+    $this->drupalPostForm('user/register', $edit1, 'Create new account');
+    $this->assertText('In the meantime, a welcome message with further instructions has been sent to your email address.', 'User registered successfully.');
 
     // Request a new activation e-mail.
     $edit2 = array();
     $edit2['name'] = $edit1['name'];
-    $this->drupalPostForm('user/password', $edit2, t('E-mail new password'));
-    $this->assertText(t('Further instructions have been sent to your e-mail address.'), t('Password rest form submitted successfully.'));
+    $this->drupalPostForm('user/password', $edit2, 'Submit');
+    $this->assertText('Further instructions have been sent to your e-mail address.', 'Password rest form submitted successfully.');
 
     // Request a new activation e-mail for a non-existing user name.
     $edit3 = array();
     $edit3['name'] = $this->randomMachineName();
-    $this->drupalPostForm('user/password', $edit3, t('E-mail new password'));
-    $this->assertText(t('Sorry, !name is not recognized as a user name or an e-mail address.', array('!name' => $edit3['name'])), t('Password rest form failed correctly.'));
+    $this->drupalPostForm('user/password', $edit3, 'Submit');
+    $this->assertText($edit3['name'] . ' is not recognized as a username or an email address.', 'Password rest form failed correctly.');
 
     // Request a new activation e-mail for a non-existing user e-mail.
     $edit4 = array();
     $edit4['name'] = $this->randomMachineName() . '@example.com';
-    $this->drupalPostForm('user/password', $edit4, t('E-mail new password'));
-    $this->assertText(t('Sorry, !mail is not recognized as a user name or an e-mail address.', array('!mail' => $edit4['name'])), t('Password rest form failed correctly.'));
+    $this->drupalPostForm('user/password', $edit4, 'Submit');
+    $this->assertText($edit4['name'] . ' is not recognized as a username or an email address.', 'Password rest form failed correctly.');
   }
 
   function _testLoginWithUrpLinkWhileBlocked() {
